@@ -1003,7 +1003,7 @@ async function runAnalysis(kind, payload){
   currentFilter = 'all';
 
   let requestPromise;
-  if(kind === 'demo'){
+  if(false){
     requestPromise = new Promise(resolve => setTimeout(()=>resolve(demoResult()), 2200));
   } else if(kind === 'pr'){
     requestPromise = apiRequest('/api/analyze/pr', { prUrl: payload.prUrl });
@@ -1229,8 +1229,8 @@ async function generateTests(){
     }
   }catch(err){
     console.error('Test generation failed:', err);
-    showToast(`Couldn't generate tests — showing example instead (${err.message})`);
-    renderTestResults(TESTS, TEST_CODE);
+    showToast("Backend error"+ err.message);
+    return;
   }finally{
     btn.disabled = false;
     btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5.5L20 9l-4.8 3.9L16.5 19 12 15.8 7.5 19l1.3-6.1L4 9l5.6-1.5L12 2z" fill="currentColor"/></svg> Regenerate`;
