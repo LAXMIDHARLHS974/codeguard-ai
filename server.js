@@ -109,9 +109,7 @@ app.post("/api/tests/generate", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8787;
-app.listen(PORT, () => {
-  console.log(`CodeGuard AI backend listening on http://localhost:${PORT}`);
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn("⚠️  GEMINI_API_KEY is not set — analysis requests will fail. See your .env file");
-  }
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`CodeGuard AI backend listening on port ${PORT}`);
 });
