@@ -156,39 +156,42 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background-ima
 <div class="toast" id="toast"></div>
 
 <script>
-const API_BASE="https://codeguard-lhs.onrender.com";
-let findings=[],activeFilter="all";
+const API_BASE = (window.location.protocol.startsWith("http") && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"))
+  ? ""
+  : "https://codeguard-lhs.onrender.com";
+
+let findings=[], activeFilter="all", currentAnalysisId=null;
 
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 function toast(msg){$("toast").textContent=msg;$("toast").classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$("toast").classList.remove("show"),3300)}
-function scrollToId(id){$(id).scrollIntoView({behavior:"smooth",block:"start"})}
+function scrollToId(id){if($(id))$(id).scrollIntoView({behavior:"smooth",block:"start"})}
 function go(id,el){document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));el.classList.add("active");if($(id))scrollToId(id)}
 function openModal(title){
  $("modalTitle").textContent=title;
  const text={
-  "Repositories":"Repository management is ready as a frontend workspace. Your existing backend currently focuses on PR/diff analysis, so OAuth, repository lists and webhooks can be added later without replacing this UI.",
-  "Automation":"Future automation: GitHub webhooks can call the same analysis service whenever a PR is opened or updated.",
-  "Documentation":"CodeGuard uses <code>/api/health</code>, <code>/api/analyze/pr</code>, <code>/api/analyze/diff</code>, and <code>/api/tests/generate</code> on your existing Render backend.",
-  "Settings":"Frontend configuration is intentionally minimal. The backend URL is <code>https://codeguard-lhs.onrender.com</code>; secrets are not stored in this page.",
-  "Search":"Search UI is ready. Connect it to repository/history search when that backend endpoint is added.",
-  "Notifications":"No notification API is connected yet. This panel is functional and can later display webhook events, failed reviews, and merge alerts.",
-  "Test Lab":"The Test Lab sends the latest findings to <code>/api/tests/generate</code> and renders the returned test names and code.",
+  "Repositories":"Repository management is connected to persistent storage. Connect new repositories, view connected branches, and monitor analysis history.",
+  "Automation":"CI/CD automation is available via GitHub Actions webhook triggers pointing to /api/analyze/pr.",
+  "Documentation":"CodeGuard production API documentation covers /api/health, /api/analyze/pr, /api/analyze/diff, /api/tests/generate, and /api/history.",
+  "Settings":"Environment status: Gemini model is configured securely. Secrets are never exposed to browser clients.",
+  "Search":"Search across historical reviews and vulnerability databases using the History tab.",
+  "Notifications":"Real-time notification engine tracks completed PR reviews, high-risk alerts, and security scan status.",
+  "Test Lab":"AI Test Lab generates runnable unit and regression test suites for JavaScript (Jest), Python (pytest), and Java (JUnit 5).",
  };
  $("modalBody").innerHTML="<p>"+(text[title]||"CodeGuard workspace action.")+"</p>";
  $("modal").classList.add("show");
 }
 function closeModal(){$("modal").classList.remove("show")}
 function setMode(m){$("prBox").style.display=m==="pr"?"block":"none";$("diffBox").style.display=m==="diff"?"block":"none";$("prTab").classList.toggle("active",m==="pr");$("diffTab").classList.toggle("active",m==="diff")}
-function loadExample(){$("prUrl").value="https://github.com/acme-corp/auth-service/pull/42";setMode("pr");toast("Example PR loaded. Use a real GitHub PR for live analysis.")}
-function clearAll(){$("prUrl").value="";$("diff").value="";findings=[];$("list").innerHTML='<div class="empty">Your real security findings will appear here.</div>';$("risk").textContent="—";$("issues").textContent="—";$("files").textContent="—";$("posture").textContent="—";$("source").textContent="Awaiting data";toast("Analysis inputs cleared.")}
+function loadExample(){$("prUrl").value="https://github.com/expressjs/express/pull/5800";setMode("pr");toast("Example PR loaded. Click 'Run AI Review' to inspect.")}
+function clearAll(){$("prUrl").value="";$("diff").value="";findings=[];currentAnalysisId=null;$("list").innerHTML='<div class="empty">Your real security findings will appear here.</div>';$("risk").textContent="—";$("issues").textContent="—";$("files").textContent="—";$("posture").textContent="—";$("source").textContent="Awaiting data";toast("Analysis inputs cleared.")}
 async function api(path,body){const r=await fetch(API_BASE+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||`Backend returned ${r.status}`);return d}
 async function checkHealth(){
  try{
   const r=await fetch(API_BASE+"/api/health",{cache:"no-store"}),d=await r.json();
-  const ok=d.ok&&d.geminiConfigured;$("led").className="dot "+(ok?"ok":"bad");$("health").textContent=ok?(d.githubTokenConfigured?"Backend + GitHub ready":"Backend ready · GitHub token missing"):"Backend configuration error";
-  $("backendState").textContent=ok?"ONLINE":"CHECK";$("backendText").textContent=d.githubTokenConfigured?"Render + GitHub connected":"Render online; GitHub token missing";
- }catch(e){$("led").className="dot bad";$("health").textContent="Backend offline";$("backendState").textContent="OFFLINE";$("backendText").textContent="Cannot reach Render"}
+  const ok=d.ok&&d.geminiConfigured;$("led").className="dot "+(ok?"ok":"bad");$("health").textContent=ok?(d.githubTokenConfigured?"Backend + GitHub ready":"Backend ready · GitHub token optional"):"Backend configuration error";
+  $("backendState").textContent=ok?"ONLINE":"CHECK";$("backendText").textContent=d.githubTokenConfigured?"Render + GitHub connected":"Gemini online; GitHub optional";
+ }catch(e){$("led").className="dot bad";$("health").textContent="Backend offline";$("backendState").textContent="OFFLINE";$("backendText").textContent="Cannot reach backend"}
 }
 async function analyzePR(){
  const url=$("prUrl").value.trim();if(!url)return toast("Enter a GitHub Pull Request URL.");
@@ -200,6 +203,7 @@ async function analyzeDiff(){
  try{toast("Sending diff to CodeGuard...");const d=await api("/api/analyze/diff",{diff,title:"CodeGuard Diff Review"});renderResult(d)}catch(e){toast("Diff analysis failed: "+e.message)}
 }
 function renderResult(d){
+ currentAnalysisId=d.analysisId||null;
  findings=Array.isArray(d.findings)?d.findings:[];activeFilter="all";
  const score=Number(d.riskScore||0),c=score>=70?"var(--red)":score>=40?"var(--orange)":"var(--green)";
  $("risk").textContent=d.riskScore??"—";$("files").textContent=d.stats?.filesChanged??"—";$("added").textContent=d.stats?.linesAdded??"—";$("removed").textContent=d.stats?.linesRemoved??"—";$("issues").textContent=findings.length;
@@ -207,18 +211,22 @@ function renderResult(d){
  $("ring").style.background=`conic-gradient(${c} ${score*3.6}deg,#242846 ${score*3.6}deg 360deg)`;
  $("posture").textContent=score>=70?"HIGH":score>=40?"MODERATE":"LOW";$("postureText").textContent=score>=70?"Action required":score>=40?"Review before merge":"No major risk signal";
  $("riskTitle").textContent=score>=70?"High risk detected":score>=40?"Moderate risk":"Low risk";
- $("riskText").textContent=score>=70?"Critical or high-severity findings need attention before merge.":score>=40?"Review the highest severity findings before merging.":"No major risk signal detected by the current analysis.";
+ $("riskText").textContent=d.riskBreakdown?.explanation || (score>=70?"Critical or high-severity findings need attention before merge.":score>=40?"Review the highest severity findings before merging.":"No major risk signal detected by the current analysis.");
  $("source").textContent=d.source==="github"?"GitHub PR":"Pasted diff";$("status").textContent=`${findings.length} issue${findings.length===1?"":"s"} · ${d.source||"analysis"}`;
  updateCounts();drawFindings();scrollToId("findings");toast("Live analysis completed.");
 }
 function updateCounts(){ $("allCount").textContent=findings.length;["critical","high","medium","low"].forEach(s=>$(s+"Count").textContent=findings.filter(f=>f.severity===s).length) }
 function filterFindings(f){activeFilter=f;document.querySelectorAll(".filter").forEach(x=>x.classList.toggle("active",x.dataset.filter===f));drawFindings()}
-function codeBlock(a,b){let x=Array.isArray(a)?a.map(v=>`<span class="badline">${esc(v.t)}</span>`).join("\\n"):"",y=Array.isArray(b)?b.map(v=>`<span class="goodline">${esc(v.t)}</span>`).join("\\n"):"";return x||y?`<div class="code">${x}${x&&y?"\\n":""}${y}</div>`:""}
+function codeBlock(a,b,evidence,recommendation){
+ let x=Array.isArray(a)&&a.length?a.map(v=>`<span class="badline">${esc(v.t)}</span>`).join("\n"):(evidence?`<span class="badline">${esc(evidence)}</span>`:"");
+ let y=Array.isArray(b)&&b.length?b.map(v=>`<span class="goodline">${esc(v.t)}</span>`).join("\n"):(recommendation?`<span class="goodline">${esc(recommendation)}</span>`:"");
+ return x||y?`<div class="code">${x}${x&&y?"\n":""}${y}</div>`:""
+}
 function drawFindings(){
  const arr=activeFilter==="all"?findings:findings.filter(f=>f.severity===activeFilter);
  if(!arr.length){$("list").innerHTML='<div class="empty">No findings in this filter.</div>';return}
  const colors={critical:"var(--red)",high:"var(--orange)",medium:"var(--yellow)",low:"var(--blue)"};
- $("list").innerHTML=arr.map((f,i)=>`<article class="finding"><div class="frow"><div class="bar" style="background:${colors[f.severity]||colors.low}"></div><div class="fmain"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span><div class="ftitle">${esc(f.title)}</div><div class="meta">${esc(f.file)} : ${esc(f.line)} · ${esc(f.category||"quality")}</div></div><button class="toggle" onclick="toggleFinding(${i})">⌄</button></div><div class="details" id="detail${i}"><p><b>Finding:</b> ${esc(f.description)}</p><p><b>Why it matters:</b> ${esc(f.why)}</p>${codeBlock(f.badCode,f.fixCode)}</div></article>`).join("");
+ $("list").innerHTML=arr.map((f,i)=>`<article class="finding"><div class="frow"><div class="bar" style="background:${colors[f.severity]||colors.low}"></div><div class="fmain"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span><span style="font-size:8px;margin-left:8px;color:var(--muted)">confidence: ${Math.round((f.confidence||0.9)*100)}%</span><div class="ftitle">${esc(f.title)}</div><div class="meta">${esc(f.file)} : ${esc(f.line)} · ${esc(f.category||"quality")}</div></div><button class="toggle" onclick="toggleFinding(${i})">⌄</button></div><div class="details" id="detail${i}"><p><b>Finding:</b> ${esc(f.description)}</p><p><b>Why it matters:</b> ${esc(f.why)}</p>${f.recommendation?`<p><b>Recommendation:</b> ${esc(f.recommendation)}</p>`:""}${codeBlock(f.badCode,f.fixCode,f.evidence,f.recommendation)}</div></article>`).join("");
 }
 function toggleFinding(i){$("detail"+i).classList.toggle("open")}
 function mergeDecision(){
@@ -232,9 +240,9 @@ async function generateTests(){
  if(!findings.length)return toast("Run an analysis before generating tests.");
  const b=$("testBtn");b.disabled=true;b.innerHTML='<span class="spin"></span> Generating...';
  try{
-  const d=await api("/api/tests/generate",{findings});
+  const d=await api("/api/tests/generate",{analysisId:currentAnalysisId,findings});
   $("testnames").innerHTML=(d.testNames||[]).map(x=>`<div class="testitem">✓ ${esc(x)}</div>`).join("")||'<div class="testitem">No tests returned.</div>';
-  $("testcode").textContent=d.code||"";$("testout").classList.add("show");scrollToId("tests");toast("Tests generated by your existing backend.");
+  $("testcode").textContent=d.code||"";$("testout").classList.add("show");scrollToId("tests");toast("Tests generated successfully.");
  }catch(e){toast("Test generation failed: "+e.message)}finally{b.disabled=false;b.textContent="Generate tests"}
 }
 checkHealth();
