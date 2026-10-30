@@ -47,6 +47,14 @@ async function comparePassword(plain, hash) {
   return bcrypt.compare(plain, hash);
 }
 
+function maskSecret(secret, visibleChars = 4) {
+  if (!secret || typeof secret !== "string") return "";
+  if (secret.length <= visibleChars * 2) return "••••••••";
+  const prefix = secret.slice(0, 4);
+  const suffix = secret.slice(-visibleChars);
+  return `${prefix}••••••••${suffix}`;
+}
+
 module.exports = {
   encrypt,
   decrypt,
@@ -54,4 +62,5 @@ module.exports = {
   verifyToken,
   hashPassword,
   comparePassword,
+  maskSecret,
 };

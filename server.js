@@ -50,7 +50,7 @@ app.use("/api", optionalAuth);
 // Mount API routes
 app.use("/api", apiRoutes);
 
-// Static assets: serve React frontend from client/dist if built, otherwise root directory
+// Static assets: serve production React SPA from client/dist
 const clientDistPath = path.join(__dirname, "client", "dist");
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
@@ -59,9 +59,11 @@ if (fs.existsSync(clientDistPath)) {
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 } else {
-  app.use(express.static(path.join(__dirname)));
-  app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    res.status(503).json({
+      error: "Client UI bundle not built. Please run 'npm run build:client' to generate client/dist.",
+    });
   });
 }
 

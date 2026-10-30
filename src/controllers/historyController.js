@@ -39,8 +39,18 @@ async function deleteHistoryItem(req, res, next) {
   }
 }
 
+async function getDashboardMetrics(req, res, next) {
+  try {
+    const stats = await dbService.getDashboardStats(req.userId);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listHistory,
   getHistoryDetail,
   deleteHistoryItem,
+  getDashboardMetrics,
 };

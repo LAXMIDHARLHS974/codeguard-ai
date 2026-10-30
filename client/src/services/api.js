@@ -130,4 +130,35 @@ export const api = {
     }),
 
   getSession: () => request("/api/workspace/session"),
+
+  // Dashboard Aggregates
+  getDashboardStats: () => request("/api/history/stats"),
+
+  // User Profile & Sessions
+  getUserProfile: () => request("/api/user/profile"),
+  updateUserProfile: (payload) =>
+    request("/api/user/profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  getUserSessions: () => request("/api/user/sessions"),
+  revokeUserSession: (sessionId) =>
+    request(`/api/user/sessions/${sessionId}`, {
+      method: "DELETE",
+    }),
+
+  // Global CodeGuard AI Assistant
+  chatWithAssistant: (message, context = {}) =>
+    request("/api/assistant/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, context }),
+    }),
+
+  // Repository Pull Requests
+  listRepoPullRequests: (owner, repo, state = "open") =>
+    request(
+      `/api/workspace/pull-requests?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(
+        repo
+      )}&state=${encodeURIComponent(state)}`
+    ),
 };

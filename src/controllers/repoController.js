@@ -66,6 +66,22 @@ async function markNotificationRead(req, res, next) {
   }
 }
 
+const { fetchRepoPullRequests } = require("../githubService");
+
+async function listRepoPullRequests(req, res, next) {
+  try {
+    const { owner, repo, state = "open" } = req.query;
+    if (!owner || !repo) {
+      throw new ValidationError("owner and repo query parameters are required");
+    }
+    const token = req.headers["x-github-token"] || null;
+    const prs = await fetchRepoPullRequests(owner, repo, state, token);
+    res.json({ pullRequests: prs });
+  } catch (err) {
+    next(err);
+  }
+}
+
 function getSession(req, res) {
   res.json({
     userId: req.userId,
@@ -80,5 +96,6 @@ module.exports = {
   deleteRepository,
   listNotifications,
   markNotificationRead,
+  listRepoPullRequests,
   getSession,
 };

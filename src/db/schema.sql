@@ -4,9 +4,36 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(64) PRIMARY KEY,
     email VARCHAR(255) UNIQUE,
     password_hash VARCHAR(255),
-    role VARCHAR(32) DEFAULT 'developer',
+    name VARCHAR(128) DEFAULT 'Security Engineer',
+    role VARCHAR(32) DEFAULT 'Security Lead',
+    company VARCHAR(128) DEFAULT 'CodeGuard AI',
+    bio TEXT DEFAULT 'Full-stack application security and code review lead.',
+    avatar_url TEXT DEFAULT '',
+    github_username VARCHAR(128) DEFAULT '',
+    github_token_enc TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT NOT NULL,
+    ip_address VARCHAR(64) DEFAULT '127.0.0.1',
+    user_agent TEXT DEFAULT 'Unknown Browser',
+    last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    target_type VARCHAR(64) NOT NULL,
+    target_id VARCHAR(64),
+    details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS connected_github_accounts (

@@ -175,8 +175,49 @@ async function fetchPullRequest(prUrl, customToken = null) {
   };
 }
 
+/**
+ * Fetches pull requests for a given repository (owner/repo).
+ */
+async function fetchRepoPullRequests(owner, repo, state = "open", customToken = null) {
+  if (!owner || !repo) {
+    throw new ValidationError("Owner and repository name are required");
+  }
+
+  const cleanOwner = String(owner).trim();
+  const cleanRepo = String(repo).trim().replace(/\.git$/, "");
+  const url = `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/pulls?state=${encodeURIComponent(state)}&per_page=30`;
+
+  const res = await fetch(url, { headers: getAuthHeaders("application/vnd.github+json", customToken) });
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new NotFoundError(`Repository ${cleanOwner}/${cleanRepo} not found or inaccessible`);
+    }
+    if (res.status === 403) {
+      throw new RateLimitError("GitHub API rate limit exceeded or access forbidden");
+    }
+    throw new ExternalServiceError(`Failed to fetch pull requests from GitHub (${res.status})`);
+  }
+
+  const prs = await res.json();
+  if (!Array.isArray(prs)) return [];
+
+  return prs.map((pr) => ({
+    number: pr.number,
+    title: pr.title,
+    author: pr.user?.login || "unknown",
+    state: pr.state,
+    htmlUrl: pr.html_url,
+    baseBranch: pr.base?.ref || "main",
+    headBranch: pr.head?.ref || "feature",
+    createdAt: pr.created_at,
+    updatedAt: pr.updated_at,
+    isDraft: Boolean(pr.draft),
+  }));
+}
+
 module.exports = {
   parsePrUrl,
   fetchPullRequest,
   fetchPullRequestFiles,
+  fetchRepoPullRequests,
 };

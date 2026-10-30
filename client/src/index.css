@@ -3,22 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --bg: #070816;
-  --bg2: #0b0d1d;
-  --panel: rgba(18, 21, 43, 0.78);
-  --line: #292d50;
-  --text: #f4f5ff;
-  --muted: #8d92b0;
+  --bg: #09080D;
+  --sidebar: #08070A;
+  --card: #17131D;
+  --purple: #C78BCB;
+  --pink: #F0A4D9;
+  --text: #FFFFFF;
+  --secondary: #AAA5B3;
+  --line: rgba(255, 255, 255, 0.07);
 }
 
 body {
   margin: 0;
   background-color: var(--bg);
   background-image: 
-    radial-gradient(circle at 80% -10%, rgba(56, 32, 108, 0.35), transparent 35%),
-    radial-gradient(circle at 20% 30%, rgba(18, 61, 90, 0.2), transparent 30%);
+    radial-gradient(circle at 85% 0%, rgba(199, 139, 203, 0.14), transparent 50%),
+    radial-gradient(circle at 10% 40%, rgba(240, 164, 217, 0.08), transparent 40%),
+    radial-gradient(circle at 70% 85%, rgba(158, 100, 162, 0.07), transparent 45%);
   color: var(--text);
   min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 body::before {
@@ -27,36 +31,60 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
-  z-index: 1;
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+  z-index: 0;
 }
 
-/* Custom Glassmorphism Panels */
+/* Glassmorphism Surface Cards */
 .glass-panel {
-  background: linear-gradient(145deg, rgba(18, 21, 43, 0.88), rgba(10, 12, 27, 0.86));
-  border: 1px solid var(--line);
+  background: rgba(23, 19, 29, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px);
-  border-radius: 16px;
+  border-radius: 20px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(199, 139, 203, 0.22);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #FFFFFF 20%, #C78BCB 70%, #F0A4D9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, #C78BCB 0%, #D87DBE 50%, #F0A4D9 100%);
+  color: #08070A;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-gradient:hover {
+  opacity: 0.94;
+  box-shadow: 0 0 25px rgba(199, 139, 203, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080a18;
+  background: #08070A;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #24294a;
-  border-radius: 4px;
+  background: #25202E;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4275;
+  background: #3B3347;
 }

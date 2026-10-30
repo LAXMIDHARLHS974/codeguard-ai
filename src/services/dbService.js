@@ -13,6 +13,9 @@ const memoryStore = {
   generatedTests: new Map(),
   notifications: new Map(),
   repositories: new Map(),
+  users: new Map(),
+  sessions: new Map(),
+  activityLogs: new Map(),
 };
 
 async function initDb() {
@@ -542,6 +545,320 @@ async function deleteRepository(id, userId) {
   }
 }
 
+// --------------------------------------------------------------------------
+// USER PROFILE & SESSIONS
+// --------------------------------------------------------------------------
+
+async function getUserProfile(userId) {
+  if (usePostgres && pool) {
+    const res = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
+    if (res.rows.length) {
+      const u = res.rows[0];
+      return {
+        id: u.id,
+        email: u.email || `${userId}@codeguard.internal`,
+        name: u.name || "Security Engineer",
+        role: u.role || "Security Lead",
+        company: u.company || "CodeGuard AI",
+        bio: u.bio || "Full-stack application security and code review lead.",
+        avatarUrl: u.avatar_url || "",
+        githubUsername: u.github_username || "",
+        hasGitHubToken: Boolean(u.github_token_enc),
+      };
+    }
+  }
+
+  // Memory fallback
+  const user = memoryStore.users.get(userId);
+  if (user) return user;
+
+  // Default profile for local/dev session
+  const defaultProfile = {
+    id: userId,
+    email: `${userId}@codeguard.internal`,
+    name: "Laxmidhar",
+    role: "Principal Security Architect",
+    company: "CodeGuard AI Labs",
+    bio: "Guarding production pipelines with autonomous AI-driven code intelligence.",
+    avatarUrl: "",
+    githubUsername: "LAXMIDHARLHS974",
+    hasGitHubToken: Boolean(config.GITHUB_TOKEN),
+  };
+  memoryStore.users.set(userId, defaultProfile);
+  return defaultProfile;
+}
+
+async function updateUserProfile(userId, data) {
+  const existing = await getUserProfile(userId);
+  const updated = {
+    ...existing,
+    name: data.name !== undefined ? data.name : existing.name,
+    email: data.email !== undefined ? data.email : existing.email,
+    role: data.role !== undefined ? data.role : existing.role,
+    company: data.company !== undefined ? data.company : existing.company,
+    bio: data.bio !== undefined ? data.bio : existing.bio,
+    avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : existing.avatarUrl,
+    githubUsername: data.githubUsername !== undefined ? data.githubUsername : existing.githubUsername,
+    hasGitHubToken: data.hasGitHubToken !== undefined ? data.hasGitHubToken : existing.hasGitHubToken,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (usePostgres && pool) {
+    await pool.query(
+      `INSERT INTO users (id, email, name, role, company, bio, avatar_url, github_username, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         email = EXCLUDED.email,
+         role = EXCLUDED.role,
+         company = EXCLUDED.company,
+         bio = EXCLUDED.bio,
+         avatar_url = EXCLUDED.avatar_url,
+         github_username = EXCLUDED.github_username,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        userId,
+        updated.email,
+        updated.name,
+        updated.role,
+        updated.company,
+        updated.bio,
+        updated.avatarUrl,
+        updated.githubUsername,
+        updated.updatedAt,
+      ]
+    );
+  }
+
+  memoryStore.users.set(userId, updated);
+  await logActivity({
+    userId,
+    action: "profile_updated",
+    targetType: "user",
+    targetId: userId,
+    details: { name: updated.name, role: updated.role },
+  });
+  return updated;
+}
+
+async function getUserSessions(userId) {
+  if (usePostgres && pool) {
+    const res = await pool.query(
+      "SELECT * FROM user_sessions WHERE user_id = $1 AND is_active = TRUE ORDER BY created_at DESC",
+      [userId]
+    );
+    return res.rows.map((s) => ({
+      id: s.id,
+      sessionToken: s.session_token,
+      ipAddress: s.ip_address,
+      userAgent: s.user_agent,
+      lastActive: s.last_active,
+      createdAt: s.created_at,
+    }));
+  }
+
+  const list = memoryStore.sessions.get(userId) || [
+    {
+      id: "sess_current",
+      sessionToken: "sess_active_bearer",
+      ipAddress: "127.0.0.1",
+      userAgent: "CodeGuard Web Client (Active)",
+      lastActive: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  return list;
+}
+
+async function revokeUserSession(sessionId, userId) {
+  if (usePostgres && pool) {
+    await pool.query(
+      "UPDATE user_sessions SET is_active = FALSE WHERE id = $1 AND user_id = $2",
+      [sessionId, userId]
+    );
+    return true;
+  }
+  const list = memoryStore.sessions.get(userId) || [];
+  const filtered = list.filter((s) => s.id !== sessionId);
+  memoryStore.sessions.set(userId, filtered);
+  return true;
+}
+
+// --------------------------------------------------------------------------
+// ACTIVITY LOGGING
+// --------------------------------------------------------------------------
+
+async function logActivity({ userId, action, targetType, targetId = null, details = {} }) {
+  const record = {
+    id: crypto.randomUUID(),
+    userId,
+    action,
+    targetType,
+    targetId,
+    details,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (usePostgres && pool) {
+    try {
+      await pool.query(
+        `INSERT INTO activity_logs (id, user_id, action, target_type, target_id, details, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [record.id, userId, action, targetType, targetId, JSON.stringify(details), record.createdAt]
+      );
+    } catch (err) {
+      console.warn("[DB] Failed to persist activity log:", err.message);
+    }
+  } else {
+    const logs = memoryStore.activityLogs.get(userId) || [];
+    logs.unshift(record);
+    memoryStore.activityLogs.set(userId, logs.slice(0, 50));
+  }
+  return record;
+}
+
+async function listActivityLogs(userId, limit = 20) {
+  if (usePostgres && pool) {
+    const res = await pool.query(
+      "SELECT * FROM activity_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2",
+      [userId, limit]
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      details: r.details,
+      createdAt: r.created_at,
+    }));
+  }
+
+  const logs = memoryStore.activityLogs.get(userId) || [];
+  return logs.slice(0, limit);
+}
+
+// --------------------------------------------------------------------------
+// DASHBOARD AGGREGATED STATS
+// --------------------------------------------------------------------------
+
+async function getDashboardStats(userId) {
+  const analyses = await listAnalyses(userId, 50, 0);
+
+  // Security overview counts
+  let totalFindings = 0;
+  let criticalCount = 0;
+  let highCount = 0;
+  let mediumCount = 0;
+  let lowCount = 0;
+
+  for (const a of analyses) {
+    const full = await getAnalysisById(a.id, userId);
+    if (full && full.findings) {
+      totalFindings += full.findings.length;
+      for (const f of full.findings) {
+        const sev = (f.severity || "").toLowerCase();
+        if (sev === "critical") criticalCount++;
+        else if (sev === "high") highCount++;
+        else if (sev === "medium") mediumCount++;
+        else lowCount++;
+      }
+    }
+  }
+
+  // Recent PRs (analyses from GitHub or diff with title)
+  const recentPullRequests = analyses.map((a) => ({
+    id: a.id,
+    title: a.title || "Code Review",
+    source: a.source,
+    prUrl: a.prUrl,
+    riskScore: a.riskScore,
+    riskLevel: a.riskLevel,
+    findingCount: a.findingCount,
+    createdAt: a.createdAt,
+  }));
+
+  // Recharts Time-Series Trend
+  const chronological = [...analyses].reverse().slice(-10);
+  const riskTrend = chronological.map((a, idx) => {
+    const d = new Date(a.createdAt);
+    const dateLabel = isNaN(d.getTime())
+      ? `Scan #${idx + 1}`
+      : `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    return {
+      scan: `Scan #${idx + 1}`,
+      date: dateLabel,
+      score: a.riskScore,
+      findings: a.findingCount || 0,
+    };
+  });
+
+  // Actionable dynamic AI Insights
+  const aiInsights = [];
+  if (criticalCount > 0) {
+    aiInsights.push({
+      type: "critical",
+      title: `${criticalCount} Critical Vulnerabilit${criticalCount === 1 ? "y" : "ies"} Detected`,
+      advice: "Block automated merge until all critical exploit paths have verifiable regression tests.",
+    });
+  }
+  if (highCount > 0) {
+    aiInsights.push({
+      type: "high",
+      title: `${highCount} High Risk Issue${highCount === 1 ? "" : "s"} In Churn Hotspots`,
+      advice: "Enforce strict input sanitization, CSRF tokens, and parameterized SQL queries.",
+    });
+  }
+  if (analyses.length === 0) {
+    aiInsights.push({
+      type: "info",
+      title: "Clean Baseline",
+      advice: "Connect a repository or paste a unified diff to trigger automated AI security telemetry.",
+    });
+  } else {
+    aiInsights.push({
+      type: "success",
+      title: "AI Test Lab Available",
+      advice: "Automatically generate test suites in Jest, PyTest, or JUnit 5 targeting your diff edge cases.",
+    });
+  }
+
+  // Recent activity events
+  const activityLogs = await listActivityLogs(userId, 10);
+  const recentActivity = activityLogs.length
+    ? activityLogs.map((log) => ({
+        id: log.id,
+        action: log.action.replace(/_/g, " ").toUpperCase(),
+        title: log.details?.title || log.details?.name || log.targetType,
+        time: log.createdAt,
+        type: log.action.includes("error") ? "danger" : "info",
+      }))
+    : analyses.slice(0, 5).map((a) => ({
+        id: a.id,
+        action: "CODE SCAN COMPLETED",
+        title: a.title,
+        time: a.createdAt,
+        type: a.riskScore >= 70 ? "danger" : "success",
+      }));
+
+  return {
+    totalScans: analyses.length,
+    recentPullRequests,
+    securityOverview: {
+      totalFindings,
+      critical: criticalCount,
+      high: highCount,
+      medium: mediumCount,
+      low: lowCount,
+      passRate: analyses.length
+        ? Math.round((analyses.filter((a) => a.riskScore < 50).length / analyses.length) * 100)
+        : 100,
+    },
+    aiInsights,
+    riskTrend,
+    recentActivity,
+  };
+}
+
 module.exports = {
   initDb,
   saveAnalysis,
@@ -556,4 +873,11 @@ module.exports = {
   saveRepository,
   listRepositories,
   deleteRepository,
+  getUserProfile,
+  updateUserProfile,
+  getUserSessions,
+  revokeUserSession,
+  logActivity,
+  listActivityLogs,
+  getDashboardStats,
 };

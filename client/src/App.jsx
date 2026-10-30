@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import Toast from "./components/Toast";
 import MergeDecisionModal from "./components/MergeDecisionModal";
+import AIAssistantDrawer from "./components/AIAssistantDrawer";
 
 import OverviewView from "./views/OverviewView";
 import ReviewStudioView from "./views/ReviewStudioView";
@@ -11,8 +12,12 @@ import RiskIntelligenceView from "./views/RiskIntelligenceView";
 import TestLabView from "./views/TestLabView";
 import HistoryView from "./views/HistoryView";
 import RepositoriesView from "./views/RepositoriesView";
+import PullRequestsView from "./views/PullRequestsView";
+import ActivityView from "./views/ActivityView";
+import SupportView from "./views/SupportView";
 import NotificationsView from "./views/NotificationsView";
 import SettingsView from "./views/SettingsView";
+import ProfileModal from "./views/ProfileModal";
 
 import { api } from "./services/api";
 
@@ -23,6 +28,9 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [toast, setToast] = useState(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAssistantDrawer, setShowAssistantDrawer] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const showToast = (message, type = "info") => {
@@ -42,29 +50,31 @@ export default function App() {
     }
   };
 
-  const loadHistoryAndNotifications = async () => {
+  const loadUserData = async () => {
     try {
-      const [histRes, notifRes] = await Promise.all([
+      const [histRes, notifRes, profileRes] = await Promise.all([
         api.listHistory(10, 0).catch(() => ({ history: [] })),
         api.listNotifications().catch(() => ({ notifications: [] })),
+        api.getUserProfile().catch(() => null),
       ]);
       setHistoryList(histRes.history || []);
       const unread = (notifRes.notifications || []).filter((n) => !n.isRead).length;
       setUnreadCount(unread);
+      if (profileRes) setUserProfile(profileRes);
     } catch (err) {
-      console.warn("Failed to load initial history/notifications:", err);
+      console.warn("Failed to load initial user data:", err);
     }
   };
 
   useEffect(() => {
     loadHealth();
-    loadHistoryAndNotifications();
+    loadUserData();
   }, []);
 
   const handleAnalysisCompleted = (result) => {
     setActiveAnalysis(result);
     showToast("Code review and risk calculation completed successfully.", "success");
-    loadHistoryAndNotifications();
+    loadUserData();
     setCurrentView("findings");
   };
 
@@ -78,6 +88,11 @@ export default function App() {
     showToast(`Ready to review Pull Requests for ${repo.owner}/${repo.name}`, "info");
   };
 
+  const handleSelectPrForReview = (prUrl) => {
+    setCurrentView("review");
+    showToast(`Loaded ${prUrl} for AI analysis`, "info");
+  };
+
   return (
     <div className="flex min-h-screen bg-bg text-text">
       {/* Navigation Sidebar */}
@@ -85,6 +100,8 @@ export default function App() {
         currentView={currentView}
         setView={setCurrentView}
         unreadCount={unreadCount}
+        userProfile={userProfile}
+        onOpenProfile={() => setShowProfileModal(true)}
       />
 
       {/* Main Content Area */}
@@ -95,6 +112,10 @@ export default function App() {
           onRefreshHealth={loadHealth}
           onOpenNotifications={() => setCurrentView("notifications")}
           onOpenSettings={() => setCurrentView("settings")}
+          onOpenAssistant={() => setShowAssistantDrawer(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
+          userProfile={userProfile}
+          unreadCount={unreadCount}
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
@@ -128,9 +149,25 @@ export default function App() {
             />
           )}
 
+          {currentView === "pulls" && (
+            <PullRequestsView
+              onSelectPrForReview={handleSelectPrForReview}
+              onToast={showToast}
+              onError={showError}
+            />
+          )}
+
           {currentView === "tests" && (
             <TestLabView
               analysis={activeAnalysis}
+              onToast={showToast}
+              onError={showError}
+            />
+          )}
+
+          {currentView === "activity" && (
+            <ActivityView
+              onSelectAnalysis={handleSelectHistoryItem}
               onToast={showToast}
               onError={showError}
             />
@@ -152,6 +189,14 @@ export default function App() {
             />
           )}
 
+          {currentView === "support" && (
+            <SupportView
+              health={health}
+              onRefreshHealth={loadHealth}
+              onToast={showToast}
+            />
+          )}
+
           {currentView === "notifications" && (
             <NotificationsView
               onToast={showToast}
@@ -167,6 +212,22 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Global Interactive AI Assistant Drawer */}
+      <AIAssistantDrawer
+        isOpen={showAssistantDrawer}
+        onClose={() => setShowAssistantDrawer(false)}
+        activeAnalysis={activeAnalysis}
+      />
+
+      {/* User Profile & Account Settings Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onToast={showToast}
+        onError={showError}
+        onProfileUpdated={(up) => setUserProfile(up)}
+      />
 
       {/* Merge Decision Modal */}
       {showMergeModal && (
