@@ -2,7 +2,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { z } = require("zod");
 const config = require("../config/env");
-const { filterDiffForAI, parseDiffFiles, verifyFindingInDiff } = require("../diffUtils");
+const { filterDiffForAI, parseDiffFiles, verifyFindingInDiff } = require("../utils/diffUtils");
 const { computeExplainableRiskScore } = require("./riskScorer");
 const { ExternalServiceError, ValidationError } = require("../utils/errors");
 

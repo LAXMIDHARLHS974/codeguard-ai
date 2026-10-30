@@ -5,7 +5,7 @@ const isTest = config.isTest;
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 10000 : 200,
+  max: isTest || !config.isProduction ? 10000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -16,7 +16,7 @@ const globalLimiter = rateLimit({
 
 const aiActionLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  max: isTest ? 10000 : 30,
+  max: isTest || !config.isProduction ? 10000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

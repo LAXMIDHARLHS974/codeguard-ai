@@ -1,6 +1,6 @@
 const crypto = require("crypto");
-const { fetchPullRequest } = require("../githubService");
-const { parseDiffStats } = require("../diffUtils");
+const { fetchPullRequest } = require("../services/githubService");
+const { parseDiffStats } = require("../utils/diffUtils");
 const { analyzeDiff } = require("../services/analysisService");
 const dbService = require("../services/dbService");
 const { ValidationError, NotFoundError } = require("../utils/errors");

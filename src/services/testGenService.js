@@ -2,7 +2,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { z } = require("zod");
 const config = require("../config/env");
-const { filterDiffForAI } = require("../diffUtils");
+const { filterDiffForAI } = require("../utils/diffUtils");
 const { ExternalServiceError, ValidationError } = require("../utils/errors");
 
 const testOutputSchema = z.object({

@@ -4,7 +4,7 @@ const {
   filterDiffForAI,
   truncateDiff,
   verifyFindingInDiff,
-} = require("../src/diffUtils");
+} = require("../src/utils/diffUtils");
 
 describe("Diff Utilities", () => {
   const sampleDiff = `diff --git a/src/app.js b/src/app.js

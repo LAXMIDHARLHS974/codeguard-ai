@@ -161,6 +161,7 @@ npm test
 - **Test Lab (`tests/testGenService.test.js`):** Multi-language detection (Jest, Pytest, JUnit 5) and test name alignment.
 - **Database & Isolation (`tests/dbService.test.js`):** Analysis persistence, foreign key relationships, cross-user data isolation.
 - **API Endpoints (`tests/api.test.js`):** Health and readiness probes, input validation, 400/404 error schemas, history API.
+- **User & AI Assistant (`tests/userAssistant.test.js`):** Profile management, session revocation, real-time defensive assistant queries, dashboard stats.
 
 ---
 

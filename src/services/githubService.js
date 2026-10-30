@@ -1,5 +1,5 @@
-const config = require("./config/env");
-const { ValidationError, NotFoundError, RateLimitError, ExternalServiceError } = require("./utils/errors");
+const config = require("../config/env");
+const { ValidationError, NotFoundError, RateLimitError, ExternalServiceError } = require("../utils/errors");
 
 /**
  * Validates and parses a GitHub Pull Request URL.

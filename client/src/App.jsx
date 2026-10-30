@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "./components/Sidebar";
-import Navbar from "./components/Navbar";
+import TopBar from "./components/TopBar";
 import Toast from "./components/Toast";
 import MergeDecisionModal from "./components/MergeDecisionModal";
 import AIAssistantDrawer from "./components/AIAssistantDrawer";
@@ -17,7 +16,7 @@ import ActivityView from "./views/ActivityView";
 import SupportView from "./views/SupportView";
 import NotificationsView from "./views/NotificationsView";
 import SettingsView from "./views/SettingsView";
-import ProfileModal from "./views/ProfileModal";
+import ProfileModal from "./components/ProfileModal";
 
 import { api } from "./services/api";
 
@@ -94,31 +93,23 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-bg text-text">
-      {/* Navigation Sidebar */}
-      <Sidebar
+    <div className="min-h-screen bg-bg text-text flex flex-col">
+      {/* Top Bar Navigation */}
+      <TopBar
         currentView={currentView}
         setView={setCurrentView}
-        unreadCount={unreadCount}
-        userProfile={userProfile}
+        health={health}
+        onRefreshHealth={loadHealth}
+        onOpenNotifications={() => setCurrentView("notifications")}
+        onOpenSettings={() => setCurrentView("settings")}
+        onOpenAssistant={() => setShowAssistantDrawer(true)}
         onOpenProfile={() => setShowProfileModal(true)}
+        userProfile={userProfile}
+        unreadCount={unreadCount}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Navbar
-          currentView={currentView}
-          health={health}
-          onRefreshHealth={loadHealth}
-          onOpenNotifications={() => setCurrentView("notifications")}
-          onOpenSettings={() => setCurrentView("settings")}
-          onOpenAssistant={() => setShowAssistantDrawer(true)}
-          onOpenProfile={() => setShowProfileModal(true)}
-          userProfile={userProfile}
-          unreadCount={unreadCount}
-        />
-
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {currentView === "overview" && (
             <OverviewView
               analysis={activeAnalysis}
@@ -211,7 +202,6 @@ export default function App() {
             />
           )}
         </main>
-      </div>
 
       {/* Global Interactive AI Assistant Drawer */}
       <AIAssistantDrawer

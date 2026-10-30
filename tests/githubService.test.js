@@ -1,4 +1,4 @@
-const { parsePrUrl } = require("../src/githubService");
+const { parsePrUrl } = require("../src/services/githubService");
 
 describe("GitHub Service URL Parsing", () => {
   test("successfully parses standard GitHub PR URL", () => {

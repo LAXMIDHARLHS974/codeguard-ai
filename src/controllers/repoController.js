@@ -66,7 +66,7 @@ async function markNotificationRead(req, res, next) {
   }
 }
 
-const { fetchRepoPullRequests } = require("../githubService");
+const { fetchRepoPullRequests } = require("../services/githubService");
 
 async function listRepoPullRequests(req, res, next) {
   try {
